@@ -2,7 +2,9 @@
 
 Presentation slides by nabeliwo.
 
-Built with [Slidev](https://github.com/slidevjs/slidev) and deployed to [GitHub Pages](https://nabeliwo.github.io/slides/).
+Built with [Slidev](https://github.com/slidevjs/slidev).
+
+https://nabeliwo.github.io/slides/
 
 ## Setup
 

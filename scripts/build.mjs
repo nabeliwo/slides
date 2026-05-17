@@ -65,31 +65,21 @@ const html = `<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Slides - nabeliwo</title>
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 2rem; }
-    h1 { text-align: center; margin-bottom: 2rem; font-size: 2rem; color: #f8fafc; }
-    .talks { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 1rem; }
-    a.card { display: block; padding: 1.25rem 1.5rem; background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; text-decoration: none; color: inherit; transition: background 0.15s, border-color 0.15s; }
-    a.card:hover { background: #334155; border-color: #60a5fa; }
-    .card-title { font-size: 1.125rem; font-weight: 600; color: #f8fafc; }
-    .card-meta { margin-top: 0.375rem; font-size: 0.875rem; color: #94a3b8; }
-  </style>
 </head>
 <body>
   <h1>Slides</h1>
-  <div class="talks">
+  <ul>
 ${talkEntries
   .sort((a, b) => b.talk.localeCompare(a.talk))
   .map(
-    ({ talk, title, event, date }) =>
-      `    <a class="card" href="/${REPO_NAME}/${TALKS_DIR}/${talk}/">
-      <div class="card-title">${escapeHtml(title)}</div>
-      ${event || date ? `<div class="card-meta">${[event, date].filter(Boolean).join(" / ")}</div>` : ""}
-    </a>`
+    ({ talk, title, event, date }) => {
+      const meta = [event, date].filter(Boolean).join(" / ");
+      const label = meta ? `${escapeHtml(title)} (${escapeHtml(meta)})` : escapeHtml(title);
+      return `    <li><a href="/${REPO_NAME}/${TALKS_DIR}/${talk}/">${label}</a></li>`;
+    }
   )
   .join("\n")}
-  </div>
+  </ul>
 </body>
 </html>`;
 
