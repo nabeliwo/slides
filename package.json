@@ -1,0 +1,9 @@
+{
+  "name": "slides",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "pnpm -r --parallel run dev"
+  },
+  "packageManager": "pnpm@10.5.2"
+}

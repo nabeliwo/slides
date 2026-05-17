@@ -1,0 +1,14 @@
+{
+  "name": "20260517_nowhere_test",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "slidev build",
+    "dev": "slidev --open"
+  },
+  "dependencies": {
+    "@slidev/cli": "^52.15.2",
+    "@slidev/theme-default": "latest",
+    "vue": "^3.5.33"
+  }
+}
