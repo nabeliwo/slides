@@ -65,6 +65,14 @@ const html = `<!DOCTYPE html>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Slides - nabeliwo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 80px auto; padding: 0 20px; color: #222; }
+    h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 2rem; }
+    ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.75rem; }
+    a { color: inherit; text-decoration: none; display: block; padding: 0.75rem 1rem; border: 1px solid #e5e5e5; border-radius: 8px; transition: border-color 0.15s; }
+    a:hover { border-color: #888; }
+    .meta { font-size: 0.85rem; color: #888; margin-top: 0.25rem; }
+  </style>
 </head>
 <body>
   <h1>Slides</h1>
@@ -74,8 +82,8 @@ ${talkEntries
   .map(
     ({ talk, title, event, date }) => {
       const meta = [event, date].filter(Boolean).join(" / ");
-      const label = meta ? `${escapeHtml(title)} (${escapeHtml(meta)})` : escapeHtml(title);
-      return `    <li><a href="/${REPO_NAME}/${TALKS_DIR}/${talk}/">${label}</a></li>`;
+      const metaHtml = meta ? `<div class="meta">${escapeHtml(meta)}</div>` : "";
+      return `    <li><a href="/${REPO_NAME}/${TALKS_DIR}/${talk}/">${escapeHtml(title)}${metaHtml}</a></li>`;
     }
   )
   .join("\n")}
