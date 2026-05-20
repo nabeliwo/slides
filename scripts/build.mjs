@@ -35,7 +35,60 @@ for (const talk of talks) {
     cwd: talkDir,
     stdio: "inherit",
   });
+
+  // Inject SPA restore script into the talk's index.html so that
+  // `?/<rest>` query (set by the root 404.html redirect) is converted
+  // back into a real path via history.replaceState before Slidev's
+  // Vue Router boots.
+  const indexHtmlPath = join(outDir, "index.html");
+  const restoreScript = `<script>(function(){var l=window.location;if(l.search[1]==="/"){var d=l.search.slice(1).split("&").map(function(s){return s.replace(/~and~/g,"&")}).join("?");window.history.replaceState(null,null,l.pathname.slice(0,-1)+d+l.hash)}})();</script>`;
+  const originalHtml = readFileSync(indexHtmlPath, "utf-8");
+  writeFileSync(indexHtmlPath, originalHtml.replace("<head>", `<head>\n${restoreScript}`));
 }
+
+// Generate root dist/404.html that redirects unknown paths under
+// /<REPO_NAME>/<TALKS_DIR>/<talk>/... to the talk's index.html with
+// the original path encoded as `?/<rest>`. The restore script
+// injected into each talk's index.html will turn it back into a real
+// path. Paths that don't match the talk pattern fall back to the
+// landing page.
+const pathPrefix = `/${REPO_NAME}/${TALKS_DIR}/`;
+const landingPath = `/${REPO_NAME}/`;
+const fallbackHtml = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Redirecting...</title>
+<script>
+(function () {
+  var l = window.location;
+  var prefix = ${JSON.stringify(pathPrefix)};
+  var landing = ${JSON.stringify(landingPath)};
+  if (l.pathname.indexOf(prefix) === 0) {
+    var rest = l.pathname.slice(prefix.length).split("/");
+    var talk = rest.shift();
+    var subPath = rest.join("/");
+    // Only redirect when there's an actual sub-path beyond the talk
+    // root. If subPath is empty, the talk itself doesn't exist (its
+    // index.html would have been served instead of 404.html), so
+    // redirecting to the same URL would loop — fall through to the
+    // landing page below.
+    if (talk && subPath) {
+      l.replace(
+        l.protocol + "//" + l.host + prefix + talk + "/?/" +
+        subPath.replace(/&/g, "~and~") +
+        (l.search ? "&" + l.search.slice(1).replace(/&/g, "~and~") : "") +
+        l.hash
+      );
+      return;
+    }
+  }
+  l.replace(l.protocol + "//" + l.host + landing);
+})();
+</script>
+</head>
+<body></body>
+</html>`;
 
 // Generate landing page
 const talkEntries = talks.map((talk) => {
@@ -94,6 +147,9 @@ ${talkEntries
 mkdirSync(distPath, { recursive: true });
 writeFileSync(join(distPath, "index.html"), html);
 console.log("\nGenerated dist/index.html (landing page)");
+
+writeFileSync(join(distPath, "404.html"), fallbackHtml);
+console.log("Generated dist/404.html (SPA deep-link fallback)");
 
 function escapeHtml(str) {
   return str
