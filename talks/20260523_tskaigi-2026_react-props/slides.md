@@ -217,7 +217,6 @@ const UserList = (props: Props) => {
 
 <!--
 - UserList コンポーネントが期待する props の受け取り方を考えてみると、実際は、この3パターン以外はありえないので受け取りたくないはずですよね
-- ただ厳密には、コンポーネントがマウントされてからデータフェッチが始まるまでの idle 状態もあるが、それは今日は一旦省いて考える
 -->
 
 ---
@@ -458,7 +457,7 @@ const UserList = ({ users }: Props) => users.map((user) => (
 
 ```tsx
 const Page = () => {
-  const users = useUsers()
+  const users = useUsers() // discriminated union な型のやつを返す
 
   switch (users.status) {
     case "loading":
@@ -487,8 +486,8 @@ const Page = () => {
 </style>
 
 <!--
-- UserList から分岐がなくなった分、それを親に持たせるわけですが、useUsers カスタムフックのインターフェースを少し変えて、このカスタムフックが返すデータフェッチの結果を、discriminated union な型になるようにしてます
-- そして、Page コンポーネントが useUsers を呼び出して、そのレスポンスに応じてコンポーネントを出し分ける責務を持つようになりました
+- UserList から分岐がなくなった分、親の Page コンポーネントが useUsers のレスポンスに応じてコンポーネントを出し分ける責務を持つようになりました
+- これはとてもシンプルな形ですね
 -->
 
 ---
@@ -531,7 +530,7 @@ clickAnimation: up
 <div class="flex-1 flex items-center">
 <div class="w-full">
 
-```tsx {all|1-3,6}
+```tsx {all|1-3,6|all}
 type Props = {
   usersPromise: Promise<User[]>
 }
@@ -564,7 +563,7 @@ const UserList = ({ usersPromise }: Props) => {
 - 早速ですが、UserList コンポーネントのインターフェースを変更します
 - この変更内容は、次のスライドに出てくる React の Suspense を前提とした書き方になります
 - [click:1] users というリストを受け取るのではなく users の promise を受け取って、React の API である use に渡して promise から値を取り出しています
-- use は promise や context から値を読み取ってくれるやつですね
+- [click:1] use は promise や context から値を読み取ってくれるやつですね
 -->
 
 ---
@@ -574,7 +573,7 @@ const UserList = ({ usersPromise }: Props) => {
 <div class="flex-1 flex items-center">
 <div class="w-full">
 
-```tsx {all|2,7|5,9|6,8}
+```tsx {all|2,7|4-10|5,9|6,8}
 const Page = () => {
   const usersPromise = fetchUsers()
 
@@ -604,9 +603,10 @@ const Page = () => {
 <!--
 - そして、この UserList を呼ぶ Page コンポーネントが大きく変わっています
 - [click:1] カスタムフックを呼ぶのではなく users をフェッチする関数を直接呼び出して、その promise を UserList に渡しています
-- ローディング中の UI とエラーが出たときの UI が、条件分岐による表現ではなくなっています
-- [click:1] error 状態は ErrorBoundary の fallback で表現されていて、エラーが影響する範囲を ErrorBoundary のサブツリーに閉じ込める、ということをやっています
-- [click:1] 同じように loading 状態は Suspense の fallback で表現されていて、データ取得状態が影響する範囲を Suspense のサブツリーに閉じ込める、ということをやっています
+- [click:1] ローディング中の UI とエラーが出たときの UI が、条件分岐による表現ではなくなっています
+- ここで ErrorBoundary と Suspense が登場するわけですが、どちらも子要素の状況に応じて fallback を表示させることができるもので、Suspense は子要素の読み込みを待つもので、ErrorBoundary の方は React が直接提供しているものではなくパターンとして存在するものなのですが、子要素でエラーが発生したら fallback を表示させることができるものです
+- [click:1] error 発生時の UI 状態は ErrorBoundary の fallback で表現されていて、エラーが影響する範囲を ErrorBoundary のサブツリーに閉じ込める、ということをやっています
+- [click:1] 同じように loading 中の UI の状態は Suspense の fallback で表現されていて、データ取得状態が影響する範囲を Suspense のサブツリーに閉じ込める、ということをやっています
 -->
 
 ---
@@ -637,8 +637,8 @@ UI の状態を JSX の構造として表現している
 
 <!--
 - これって別のコンポーネントに条件分岐を隠しているだけなのではと思われるかもしれないのですが
-- [click:1] ここでやっていることは、if や switch で状態を分岐する代わりに、UI の状態を JSX の構造として表現できるようにしているってことです
-- あとは、状態遷移を React の仕組みに統合したことによって、非同期の状態の管理を JSX の構造に組み込めている、みたいな良さがあります。非同期処理の部分はどうしても命令的な処理を書かざるを得なかったのですが、そこも宣言的に書けるようになっています
+- [click:1] ここでやっていることは、if や switch で分岐する代わりに、UI の状態を JSX の構造として表現できるようにしているってことです
+- あとは、UI の状態遷移を React の仕組みに統合したことによって、非同期処理の管理を JSX の構造に組み込めている、みたいな良さがあります。非同期処理の部分はどうしても命令的な処理を書かざるを得なかったのですが、そこも宣言的に書けるようになっています
 -->
 
 ---
@@ -671,7 +671,17 @@ clickAnimation: up
 </style>
 
 <!--
-- ということで、最後まとめです。今回は3つ
-- [click:1] props の型で UI の状態を宣言する、コンポーネントの分割で責務を分ける、JSX の構造で UI の状態を表現する、という観点についてお話しました
-- コンポーネント設計を考える際の観点として、頭の片隅に入れておいてもらえると、プロダクト開発の役に立つのではないかなと思います
+- ということで、後半は駆け足で進めちゃったのですが、最後まとめです。今回は3つ
+- [click:1] props の型で UI の状態を宣言する、コンポーネントの分割で責務を分ける、JSX の構造で UI の状態を表現する、という観点で React コンポーネントを見る、ということについてお話しました
+- コンポーネント設計を考える際の1つの指針として、頭の片隅に入れておいてもらえると、プロダクト開発の役に立つのではないかなと思います
 -->
+
+---
+layout: center
+---
+
+<div class="text-center">
+<p class="text-5xl font-bold mt-4" style="line-height:1.5;">
+  おわり<br />ありがとうございました！
+</p>
+</div>
