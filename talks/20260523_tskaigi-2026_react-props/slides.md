@@ -1,7 +1,7 @@
 ---
 theme: default
 title: props は値の集合ではない — UI の状態を宣言する React コンポーネント設計
-info: React コンポーネントの props 設計は、UI の状態や責務をどれだけ明確に表現できるかに大きく影響します。本スライドでは、data や loading、error といった値の組み合わせから始めて、props の型で UI の状態を宣言する考え方を紹介します。そのうえで、現実の UI 状態が複雑になったときに、すべてを props や union 型に詰め込むのではなく、コンポーネントの責務を分け、Suspense や ErrorBoundary のような React の境界に状態表現を委ねる設計について考えます。
+info: React コンポーネントの props 設計は、UI の状態や責務をどれだけ明確に表現できるかに大きく影響します。しかし実務では、data や isLoading、error といった複数の値の組み合わせによって状態を表現することが多く、コンポーネントが取りうる状態や振る舞いが props から直感的に読み取れないケースも少なくありません。本セッションでは、props 設計を見直すことでコンポーネントの分かりやすさを高めていくための考え方を紹介します。その一例として、discriminated union を用いて props を「値の集合」ではなく「状態そのもの」として表現する設計を取り上げ、条件分岐を減らし、不正な状態を型レベルで防ぐアプローチを解説します。さらに、コンポーネント分割との関係にも触れながら、props 設計によって UI の構造や責務をどのように表現すると良いのか、その判断軸を整理します。本セッションを通して、参加者が自分のコンポーネントの props 設計を振り返り、「その設計が UI の状態や責務を適切に表現できているか」を判断できるようになることを目指します。
 colorSchema: light
 drawings:
   persist: false
@@ -66,7 +66,7 @@ type Props = {
 
 <!--
 - 突然ですが、これは React コンポーネントの props の型定義なんですが、これどう思いますか？
-- 少し思いを巡らせていただいて…、型や React に習熟している方はここからどんな話が展開されるかを想像してもらって…
+- 少し思いを巡らせていただいて…
 - はい、まあデータフェッチを親コンポーネントでしていて、そのデータを渡してるんだろうなって感じがします
 - 全部 optional になっているのが気になりますが、データフェッチの状態管理であればわからなくはないというか、見たことはあるって気がします
 -->
@@ -104,8 +104,8 @@ return (
 </style>
 
 <!--
-- その型定義の props を使ったコンポーネントの使われ方を想像してみると、こんな感じになりそうです
-- useUsers というまあ変な名前のカスタムフックですが、その中で useState や useEffect や fetch などで雑にデータフェッチをしたものを返して、それをそのまま UserList コンポーネントに渡すようなイメージです
+- そんな型のコンポーネントの使われ方を想像してみると、こんな感じになりそうです
+- カスタムフックの中でデータフェッチをしたものを返して、それをそのまま UserList コンポーネントに渡すようなイメージです
 -->
 
 ---
@@ -153,7 +153,7 @@ clickAnimation: up
 <div class="flex-1 flex items-center">
 <div class="w-full">
 
-```tsx {all|2|4|6-12}
+```tsx {all|2|4|6-12|all}
 const UserList = (props: Props) => {
   if (props.loading) return <Spinner />
 
@@ -188,36 +188,7 @@ const UserList = (props: Props) => {
 - [click:1] 次に error の判定があって
 - [click:1] 最後に data を表示する、という感じになっていました
 - data は optional なので、他の props の状態とは関係がなく常に存在チェックが必要になっちゃってるっていう微妙なところもあります
--->
-
----
-
-# 期待する状態のパターン
-
-<div class="flex-1 flex items-center">
-<div class="w-full">
-
-```tsx
-<UserList data={users} />   // データを取得できた
-<UserList loading={true} /> // データを取得中
-<UserList error={error} />  // データ取得に失敗した
-```
-
-</div>
-</div>
-
-<style>
-.slidev-layout {
-  display: flex;
-  flex-direction: column;
-}
-:deep(.slidev-code) {
-  --slidev-code-font-size: 1.8rem;
-}
-</style>
-
-<!--
-- UserList コンポーネントが期待する props の受け取り方を考えてみると、単純に考えるなら、この3パターン以外はありえないので受け取りたくないはずですよね
+- [click:1] そして見てわかる通り、UserList の UI の表示パターンはこの3パターンを期待しているんですよね
 -->
 
 ---
@@ -301,64 +272,32 @@ type Props =
 -->
 
 ---
+clickAnimation: up
+---
 
 # ありえない状態がなくなる
 
 <div class="flex-1 flex items-center">
 <div class="w-full">
 
-```tsx {all|1|2|3|all}
+```tsx
 <UserList status="loading" />
 <UserList status="error" error={error} />
 <UserList status="success" data={users} />
 ```
 
-</div>
-</div>
+<div v-click class="mt-8">
 
-<style>
-.slidev-layout {
-  display: flex;
-  flex-direction: column;
-}
-:deep(.slidev-code) {
-  --slidev-code-font-size: 2rem;
-}
-</style>
-
-<!--
-- discriminated union を使った型の props を持つ UserList の呼ばれ方を見てみます
-- [click:1] status に loading を渡すとそれ以外の props を渡せなくなり
-- [click:1] status に error を渡すと error props が必須になり data props は渡せなくなります
-- [click:1] status に success を渡すと data props が必須になり error props は渡せなくなります
-- [click:1] この3パターン以外、型チェックが通らなくなり、不正な状態を props の型レベルで防いでいます
--->
-
----
-
-# コンポーネント実装を見てみる
-
-<div class="flex-1 flex items-center">
-<div class="w-full">
-
-```tsx {all|3-7|9-16}
-const UserList = (props: Props) => {
-  switch (props.status) {
-    case "loading":
-      return <Spinner />
-
-    case "error":
-      return <ErrorMessage error={props.error} />
-
-    case "success": {
-      // オプショナルチェーンが不要になった
-      return props.data.map((item) => (/* 省略 */))
-    }
-  }
+```tsx
+if (props.status === "success") {
+  // オプショナルチェーンが消えた！
+  return props.data.map((item) => (/* 省略 */))
 }
 ```
 
 </div>
+
+</div>
 </div>
 
 <style>
@@ -367,16 +306,13 @@ const UserList = (props: Props) => {
   flex-direction: column;
 }
 :deep(.slidev-code) {
-  --slidev-code-font-size: 1.3rem;
+  --slidev-code-font-size: 1.9rem;
 }
 </style>
 
 <!--
-- さらに、コンポーネントの中の実装がどう変わるかを見てみます
-- if 文から switch 文に変えていますが、そこはあまり本質ではないので気にしないでいただいて
-- [click:1] loading と error のときは特に変化はないのですが
-- [click:1] success の場合、型レベルで data が存在することが保証されるので、オプショナルチェーンが不要になりました
-- ということで、コンポーネントの中にも良い影響があることがわかります
+- この型を使った UserList の呼ばれ方を見てみると、この3パターンの値の渡し方以外は型チェックが通らなくなり、不正な状態を props の型レベルで防いでいます
+- [click:1] さらに UserList の中の実装も、success の場合は型レベルで data が存在することが保証されるので、オプショナルチェーンが不要になるっていう良い影響があります
 -->
 
 ---
@@ -391,8 +327,8 @@ layout: center
 </div>
 
 <!--
-- props で UI の状態を宣言することで、コンポーネント使用者には用途が明確になり、コンポーネント実装者は不要な防御的コードが減ります
-- ということで、discriminated union は一つの例ですが、props とその型定義で、UI の状態を宣言できているかっていうのを意識すると、React コンポーネントのインターフェースはより良いものにできるんじゃないかと思います
+- コンポーネント使用者には用途が明確になり、コンポーネント実装者は不要な防御的コードが減ります
+- ということで、props とその型定義で、UI の状態を宣言できているかっていうのを意識すると、React コンポーネントのインターフェースはより良いものにできるんじゃないかと思います
 - と、これで終わりかと思いきや、もう少し現実世界に沿った話をしようかなと思います
 -->
 
@@ -423,7 +359,7 @@ type Props = {
 <style>
 
 :deep(.slidev-code) {
-  --slidev-code-font-size: 2.6rem;
+  --slidev-code-font-size: 2.4rem;
   --slidev-code-line-height: 1.5;
 }
 </style>
@@ -431,8 +367,7 @@ type Props = {
 <!--
 - 最初に出した例に戻ってきまして、実際はもう少し複雑になることも多いです
 - [click:1] 例えばこんな感じに、データの再取得というパターンが出てきます
-- なぜ loading / error と refetching / refetchError を分けているかというと、初回と再取得では見せたい UI が違うからですね
-- 初回はまだ表示できるデータがないので全体をローディングやエラーにしたいですが、再取得時はすでにあるデータを非表示にせずに再取得や「更新失敗」を見せたかったりします
+- 初回取得と再取得では見せたい UI が基本的に違うので、フラグも分けがちです
 -->
 
 ---
@@ -471,15 +406,14 @@ type Props =
   flex-direction: column;
 }
 :deep(.slidev-code) {
-  --slidev-code-font-size: 1.8rem;
+  --slidev-code-font-size: 1.7rem;
 }
 </style>
 
 <!--
 - ということで、先程の学びを活かして、UI の状態を考えて props の意図を明確にしてみます
 - [click:1] はい、これはなんかきつくなってきた気がしますね
-- 型の工夫だけで解決できることままあるのですが、今回の場合はこれはこれで大変だなって気がします
-- すべての状態を1つのコンポーネントで表現しようとすると、コンポーネントの責務が大きくなりすぎるかなと思います
+- まあ無理ではないと思いますが、すべての状態を1つのコンポーネントで表現しようとすると、コンポーネントの責務が大きくなりすぎるかなと思います
 -->
 
 ---
@@ -493,7 +427,6 @@ layout: center
 </div>
 
 <!--
-- 今まで話してきたことは props で表現できる範囲の工夫の話であって、全ての状態を1つの props の型に詰め込むべき、ということをではないんですよね
 - ということで、次に考えるのが、コンポーネントの責務の分離と、JSX の構造で UI の状態を表現する、ということです
 -->
 
@@ -503,10 +436,10 @@ clickAnimation: up
 
 # 責務の整理 (+ 再取得処理を追加)
 
-<div class="grid grid-cols-2 gap-8 mt-6">
-<div class="border rounded-xl p-5 text-xl leading-relaxed relative">
+<div class="grid grid-cols-2 gap-8 mt-5">
+<div class="border rounded-xl px-5 py-4 text-xl leading-relaxed relative">
 
-<div class="absolute top-3 right-3 text-sm border rounded px-2 py-0.5 opacity-70">Before</div>
+<div class="absolute top-3 right-3 text-xl font-bold border rounded px-3 py-1 opacity-70">Before</div>
 
 **親**
 
@@ -520,15 +453,13 @@ clickAnimation: up
 
 </div>
 
-<div v-click class="border rounded-xl p-5 text-xl leading-relaxed border-blue-400 relative">
+<div v-click class="border rounded-xl px-5 py-4 text-xl leading-relaxed border-blue-400 relative">
 
-<div class="absolute top-3 right-3 text-sm border border-blue-400 rounded px-2 py-0.5 text-blue-500">After</div>
+<div class="absolute top-3 right-3 text-xl font-bold border border-blue-400 rounded px-3 py-1 text-blue-500">After</div>
 
 **親**
 
-- データの有無で UI の出し分け
-  - 無: ローディングやエラー画面
-  - 有: UserList を描画
+- 初期表示の管理
 
 <div class="my-4 border-t opacity-40"></div>
 
@@ -552,7 +483,7 @@ clickAnimation: up
 <!--
 - それを実現するために、責務をどう分離するかを整理します
 - 元々は親はデータフェッチして取得した値全部を UserList に渡して、UserList はデータフェッチ以外のすべての役割を受け持っていました。さらに再取得の出し分けも受け持つようになるとなかなか大変です
-- [click:1] そして変更後ですが、UserList は自身でデータを取得し、データ取得後の UI の管理のみに責務を持つようにしてみます。そして UserList が手放した、データがまだないときの UI の管理を親に受け持ってもらうようにします
+- [click:1] そして変更後ですが、UserList は自身でデータを取得し、データ取得後の UI の管理のみに責務を持つように、してみようかなと思います。そして UserList が手放した、データがまだないときの UI の管理を親に受け持ってもらうようにします
 -->
 
 ---
@@ -592,7 +523,7 @@ return (
 
 <!--
 - UserList コンポーネントの実装を見ていきます
-- [click:1] まず、詳しくは後で話しますが、useUsers の実装を変えていて、初回 loading / 初回 error はもうここで管理せず、data は常に存在する状態にしてます。そして再取得まわりの状態と関数を返すようになってます
+- [click:1] まず、詳しくは後で話しますが、useUsers の実装を変えていて、初回 loading / 初回 error はもうここで管理せず、data は常に存在する状態にしてます。そして再取得まわりの状態と refetch 関数を返すようになってます
 - [click:1] ということで data は必ず存在するので、そのまま一覧を表示できます。再取得中や再取得エラーや再取得のトリガーの表現方法は色々あると思いますが、ここではとてもシンプルな表現にしています
 - [click:1] 改めて全体を見ると、UserList は自身でデータを取得して、取得が成功した後の UI の状態を表現することに専念しています
 -->
@@ -601,11 +532,13 @@ return (
 clickAnimation: up
 ---
 
-# データがあることを前提とするカスタムフック
+# useUsers の内部実装の変更
 
 <div class="flex-1 flex items-center">
 <div class="w-full text-3xl">
 
+- データがあることを前提とするカスタムフック
+  - ex. TanStack Query の useSuspenseQuery など
 - データがない状態では
   - フェッチ中は **Promise を throw**
   - 失敗時は **Error を throw**
@@ -630,59 +563,18 @@ clickAnimation: up
 
 <!--
 - ここで、なぜ UserList の中ではデータが必ず存在する前提にできるのかを補足します
-- ポイントは、useUsers の中でデータがない状態を throw で表現していることです
 - これは例えば TanStack Query であれば useSuspenseQuery という hooks で実装されているパターンで、最近のデータフェッチライブラリではよく見られるものです
-- 中身をもう少し詳しく話すと、初期データがない状態では、取得中は Promise を throw し、失敗時は Error を throw します。一方で、一度データが取れたあとは、そのデータを保持したまま、再取得中や再取得失敗の状態を別の値として返してくれる、という挙動になっています
-- [click:1] つまり、UserList の JSX を返す時点では、throw を通り抜けたあとの世界にいるので、データは必ず存在する、という前提が成立します。これは型レベルでも同じで、data は optional ではなくなります
+- データがないときは Promise や Error を throw するので
+- [click:1] UserList の JSX を返す時点では、throw を通り抜けたあとの世界にいるので、データは必ず存在する、という前提が成立します
 -->
 
 ---
-
-# 親側で throw を受け止める
-
-<div class="flex-1 flex items-center">
-<div class="w-full">
-
-```tsx
-const Page = () => (
-  <ErrorBoundary fallback={<ErrorMessage />}>
-    <Suspense fallback={<Spinner />}>
-      <UserList />
-    </Suspense>
-  </ErrorBoundary>
-)
-```
-
-</div>
-</div>
-
-<style>
-.slidev-layout {
-  display: flex;
-  flex-direction: column;
-}
-:deep(.slidev-code) {
-  --slidev-code-font-size: 1.8rem;
-}
-</style>
-
-<!--
-- では、親側はどう書くのかを見ていきます。UserList を直接囲むだけのシンプルな構造です
-- ここで登場するのが Suspense と ErrorBoundary という 2 つの仕組みです
-- どちらも子要素の状況に応じて fallback を表示するためのもので、Suspense は子の Promise を待っている間、ErrorBoundary は子で発生した Error をキャッチした時に、それぞれ fallback に切り替わります
-- ちなみに ErrorBoundary は React の公式 API ではなくパターンとして存在するもので、react-error-boundary のようなライブラリで実装されます
-- 今回の例だと、Suspense が初回 loading の Promise を、ErrorBoundary が初回 error をキャッチして、それぞれの fallback を表示します
-- これだけで、初回 loading と初回 error は UserList の外で表現できます
--->
-
+clickAnimation: up
 ---
 
 # JSX の構造で UI の状態を表現する
 
-<div class="flex-1 flex items-center">
-<div class="w-full">
-
-```tsx
+```tsx {all|1,5|2,4|3|all}
 <ErrorBoundary fallback={<ErrorMessage />}>
   <Suspense fallback={<Spinner />}>
     <UserList />
@@ -690,49 +582,42 @@ const Page = () => (
 </ErrorBoundary>
 ```
 
-<div class="text-2xl mt-8" style="line-height: 1.8;">
-
-- `ErrorBoundary` = データ取得失敗の状態
-- `Suspense` = データ取得中の状態
-- `UserList` = データ取得後の状態
-
+<div class="grid grid-cols-3 gap-6 text-center mt-6">
+<div v-click="1" class="border rounded-xl px-4 py-4">
+<div class="font-mono text-2xl text-blue-600">ErrorBoundary</div>
+<div class="text-lg mt-2 opacity-80">データ取得失敗</div>
 </div>
-
-<div class="text-3xl mt-8">
-
-➡️ 状態の進行が JSX のネスト構造に現れる
-
+<div v-click="2" class="border rounded-xl px-4 py-4">
+<div class="font-mono text-2xl text-blue-600">Suspense</div>
+<div class="text-lg mt-2 opacity-80">データ取得中</div>
 </div>
-
+<div v-click="3" class="border rounded-xl px-4 py-4">
+<div class="font-mono text-2xl text-blue-600">UserList</div>
+<div class="text-lg mt-2 opacity-80">データ取得後</div>
 </div>
 </div>
 
 <style>
-.slidev-layout {
-  display: flex;
-  flex-direction: column;
-}
 :deep(.slidev-code) {
-  --slidev-code-font-size: 1.8rem;
+  --slidev-code-font-size: 1.75rem;
+  --slidev-code-line-height: 1.4;
 }
 </style>
 
 <!--
-- ここで、先ほど言及した「JSX の構造で UI の状態を表現する」という話なのですが、UI の各状態がそのまま JSX のネスト構造に対応していることがわかります。
-- 一番外側の ErrorBoundary は「データ取得失敗の状態」、Suspense は「データ取得中の状態」、内側の UserList は「データ取得後の状態」という感じです。
-- 条件分岐ではなく、JSX の構造そのものとして UI の状態が表現できているわけです。
-- 最初に discriminated union で型を使って UI の状態を表現したのと同じように、ここでは React の構造で UI の状態を表現している、というのがポイントです
+- では親側はどうなるのかというと、UserList を React の Suspense と ErrorBoundary で囲むだけのシンプルな構造です
+- Suspense は内側の Promise を待っている間、ErrorBoundary は内側で発生した Error をキャッチしたときに、それぞれ fallback に切り替える、という機能を持ちます。その結果として、
+- [click:1] ErrorBoundary が「データ取得失敗の状態」を表現して、
+- [click:1] Suspense が「データ取得中の状態」を表現して、
+- [click:1] UserList が「データ取得後の状態」を表現します。UI の各状態がそのまま JSX のネスト構造に対応していることがわかります
+- [click:1] 条件分岐ではなく、構造そのものとして UI の状態を表現できていると言えます。そして、初回 loading と初回 error の UI は UserList の外で表現できていて、UserList の中は取得後の世界だけに専念できています
 -->
 
 ---
 clickAnimation: up
 ---
 
-# props は値の集合ではない
-
-<div class="text-xl opacity-70 -mt-2">
-UI の状態を宣言する React コンポーネント設計
-</div>
+# まとめ
 
 <div class="flex-1 flex items-center">
 <div class="w-full">
@@ -740,9 +625,8 @@ UI の状態を宣言する React コンポーネント設計
 <div class="text-4xl">
 <v-clicks>
 
-- UI として意味の違う状態を区別する
-- コンポーネントが責任を持つ状態だけを props にする
-- React の境界を使って UI 状態を構造として表現する
+- props の型で UI の状態を宣言する
+- コンポーネントの境界を作って UI の状態を JSX の構造として表現する
 
 </v-clicks>
 </div>
@@ -758,21 +642,30 @@ UI の状態を宣言する React コンポーネント設計
 </style>
 
 <!--
-- ということで、まとめです。今回は、最初にお見せした data, loading, error のような、ただ値を並べただけの props から始まりました
-- そこから、props の型で UI の状態を宣言する、という考え方を入れていって、最後はそれだけでは表現しきれない複雑な UI 状態を、コンポーネントの責務分離と JSX の構造で表現する、という話をしました
-- ポイントを 3 つにまとめます
-- [click:1] まず、UI として意味の違う状態を区別する。たとえば初回 loading と再取得中の loading は、UI 上は別の意味を持つので、区別して考える
-- [click:1] 次に、コンポーネントが責任を持つ状態だけを props にする。すべてを1つの props 型に詰め込もうとせず、そのコンポーネントが担当すべき状態にだけ集中させる
-- [click:1] そして、型だけで表現しきれない状態は、Suspense や ErrorBoundary のような React の境界を使って、JSX の構造そのものとして表現する
-- props 設計を考えるときに、その props は単なる値の集合になっていないか、そのコンポーネントが責任を持つ UI 状態を表せているか、という観点で見直してみると、React コンポーネントのインターフェースをより良いものにできるんじゃないかなと思います
+- ということで、最後まとめです
+- [click:1] props の型で UI の状態を宣言する
+- [click:1] コンポーネントの境界を作って UI の状態を JSX の構造として表現する
+- という2つの観点について話しました。その props は単なる値の集合になっていないか、UI の状態を表せているか、という観点を持つと、React コンポーネントのインターフェースをより良いものにできるんじゃないかなと思います
 -->
 
 ---
 layout: center
 ---
 
-<div class="text-center">
-<p class="text-5xl font-bold mt-4" style="line-height:1.5;">
-  おわり<br />ありがとうございました！
-</p>
+# 💡 TSKaigi 2026事後勉強会やります！
+
+<img src="./jigo.png" />
+
+<div class="text-2xl">
+
+- 2026/06/25(木) 19:00 〜 21:30
+- @株式会社 SmartHR 六本木オフィス
+- 登壇者も参加者も募集中です！
+- 詳しくは connpass で SmartHR を検索してね！
+
 </div>
+
+<!--
+- (いけたら) そして最後に宣伝です。SmartHR、TSKaigi 2026 事後勉強会をやります！
+- 以上で発表を終わります。ありがとうございました
+-->
