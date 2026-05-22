@@ -630,21 +630,15 @@ clickAnimation: up
 
 <!--
 - ここで、なぜ UserList の中ではデータが必ず存在する前提にできるのかを補足します
-- ポイントは、userUsers の中でデータがない状態を throw で表現していることです
+- ポイントは、useUsers の中でデータがない状態を throw で表現していることです
 - これは例えば TanStack Query であれば useSuspenseQuery という hooks で実装されているパターンで、最近のデータフェッチライブラリではよく見られるものです
-- 中身をもう少し詳しく話すと、初期データがない状態では、取得中は Promise を throw して、失敗時は Error を throw するようになっていて、データ取得ができたあとは、再取得の状態を保持するようになっています
-- [click:1] つまり、UserList の本体が実行される時点では、throw を通り抜けたあとの世界にいるので、data は必ず存在する、という前提が成立します
-- 型レベルでも成立していて、data は optional ではなくなります
-- 親側がどう受け止めるのかは、次のスライドで
+- 中身をもう少し詳しく話すと、初期データがない状態では、取得中は Promise を throw し、失敗時は Error を throw します。一方で、一度データが取れたあとは、そのデータを保持したまま、再取得中や再取得失敗の状態を別の値として返してくれる、という挙動になっています
+- [click:1] つまり、UserList の JSX を返す時点では、throw を通り抜けたあとの世界にいるので、データは必ず存在する、という前提が成立します。これは型レベルでも同じで、data は optional ではなくなります
 -->
 
 ---
 
 # 親側で throw を受け止める
-
-<div class="text-xl opacity-70 -mt-2">
-Suspense は子の Promise を、ErrorBoundary は子の Error を受け止めて fallback を表示する
-</div>
 
 <div class="flex-1 flex items-center">
 <div class="w-full">
@@ -662,25 +656,22 @@ const Page = () => (
 </div>
 </div>
 
-<div class="text-base opacity-60 mt-2">
-※ <code>ErrorBoundary</code> は React 公式 API ではなくパターン (<code>react-error-boundary</code> 等で実装される)
-</div>
-
 <style>
 .slidev-layout {
   display: flex;
   flex-direction: column;
 }
 :deep(.slidev-code) {
-  --slidev-code-font-size: 1.5rem;
+  --slidev-code-font-size: 1.8rem;
 }
 </style>
 
 <!--
-- では、その Suspense と ErrorBoundary は実際にどう書くのかを見てみると、UserList を直接囲むだけです
-- 軽く補足すると、ErrorBoundary と Suspense はどちらも子要素の状況に応じて fallback を表示するための仕組みで、Suspense は子の Promise を待っている間、ErrorBoundary は子で発生した Error をキャッチした時に、それぞれ fallback に切り替わります
+- では、親側はどう書くのかを見ていきます。UserList を直接囲むだけのシンプルな構造です
+- ここで登場するのが Suspense と ErrorBoundary という 2 つの仕組みです
+- どちらも子要素の状況に応じて fallback を表示するためのもので、Suspense は子の Promise を待っている間、ErrorBoundary は子で発生した Error をキャッチした時に、それぞれ fallback に切り替わります
 - ちなみに ErrorBoundary は React の公式 API ではなくパターンとして存在するもので、react-error-boundary のようなライブラリで実装されます
-- 今回の例だと、Suspense が初回 loading の Promise を、ErrorBoundary が初回 error の Error をキャッチして、それぞれの fallback を表示します
+- 今回の例だと、Suspense が初回 loading の Promise を、ErrorBoundary が初回 error をキャッチして、それぞれの fallback を表示します
 - これだけで、初回 loading と初回 error は UserList の外で表現できます
 -->
 
@@ -701,15 +692,15 @@ const Page = () => (
 
 <div class="text-2xl mt-8" style="line-height: 1.8;">
 
-- 一番外の `ErrorBoundary` = データ取得失敗の状態
-- 中の `Suspense` = データ取得中の状態
-- 内側の `UserList` = データ取得後の状態
+- `ErrorBoundary` = データ取得失敗の状態
+- `Suspense` = データ取得中の状態
+- `UserList` = データ取得後の状態
 
 </div>
 
-<div class="text-3xl mt-8 font-bold">
+<div class="text-3xl mt-8">
 
-➡️ 状態の進行が **JSX のネスト構造** に現れる
+➡️ 状態の進行が JSX のネスト構造に現れる
 
 </div>
 
@@ -722,75 +713,39 @@ const Page = () => (
   flex-direction: column;
 }
 :deep(.slidev-code) {
-  --slidev-code-font-size: 1.4rem;
+  --slidev-code-font-size: 1.8rem;
 }
 </style>
 
 <!--
-- ここで、もう一つの今日のテーマだった「JSX の構造で UI の状態を表現する」を回収します
-- 直前に見せた Page のコード、よく見ると、UI の状態の進行がそのまま JSX のネスト構造として現れているんですね
-- 一番外側の ErrorBoundary は「データ取得失敗の状態」、Suspense は「データ取得中の状態」、内側の UserList は「データ取得後の状態」
-- 状態の出し分けが、if 文や switch 文のロジックではなくて、JSX のネストの形として読めるわけです
-- 最初に discriminated union で型を使って状態を表現したのと同じように、ここでは React の構造で状態を表現している、というのがこの設計のポイントです
--->
-
----
-layout: center
----
-
-<div class="text-center">
-<p class="text-3xl opacity-70">初回 loading / error は境界へ</p>
-<p class="text-4xl font-bold mt-4" style="line-height:1.5;">
-  コンポーネントは自身の責務の範囲の<br />状態だけを扱う
-</p>
-</div>
-
-<!--
-- ここで整理すると、初回 loading や初回 error は Suspense や ErrorBoundary のような境界に委譲できます
-- そして UserList は、自身の責務である「一覧を表示している状態」に関する状態だけを扱います
-- これは、props で UI の状態を宣言する、という話と矛盾しているわけではありません
-- むしろ、コンポーネントが責任を持つ範囲を明確にし、それ以外を境界に委ねることで、設計がシンプルになっています
--->
-
----
-
-# props は値の集合ではない
-
-<div class="text-3xl">
-<v-clicks>
-
-- props は外から渡せる値の置き場ではない
-- props はコンポーネントが責任を持つ UI 状態を表す
-- すべてを型で抱え込まず、責務に応じて境界へ委譲する
-
-</v-clicks>
-</div>
-
-<!--
-- ここまでの話を踏まえて、あらためてタイトルに戻ります
-- [click:1] props は外から渡せる値の置き場ではありません
-- [click:1] props は、そのコンポーネントが責任を持つ UI 状態を表すものです
-- [click:1] そして、すべてを型で抱え込むのではなく、責務に応じて Suspense や ErrorBoundary のような境界に委譲することもできます
+- ここで、先ほど言及した「JSX の構造で UI の状態を表現する」という話なのですが、UI の各状態がそのまま JSX のネスト構造に対応していることがわかります。
+- 一番外側の ErrorBoundary は「データ取得失敗の状態」、Suspense は「データ取得中の状態」、内側の UserList は「データ取得後の状態」という感じです。
+- 条件分岐ではなく、JSX の構造そのものとして UI の状態が表現できているわけです。
+- 最初に discriminated union で型を使って UI の状態を表現したのと同じように、ここでは React の構造で UI の状態を表現している、というのがポイントです
 -->
 
 ---
 clickAnimation: up
 ---
 
-# まとめ
+# props は値の集合ではない
+
+<div class="text-xl opacity-70 -mt-2">
+UI の状態を宣言する React コンポーネント設計
+</div>
 
 <div class="flex-1 flex items-center">
 <div class="w-full">
 
-<v-clicks>
 <div class="text-4xl">
+<v-clicks>
 
 - UI として意味の違う状態を区別する
 - コンポーネントが責任を持つ状態だけを props にする
 - React の境界を使って UI 状態を構造として表現する
 
-</div>
 </v-clicks>
+</div>
 
 </div>
 </div>
@@ -803,11 +758,13 @@ clickAnimation: up
 </style>
 
 <!--
-- ということで最後にまとめです。今回は3つ
-- [click:1] まず、UI として意味の違う状態を区別する
-- [click:1] 次に、コンポーネントが責任を持つ状態だけを props にする
-- [click:1] そして、React の境界を使って UI 状態を構造として表現する
-- props 設計を考えるときに、その props は単なる値の集合になっていないか、そのコンポーネントが責任を持つ UI 状態を表せているか、という観点を持つと、React コンポーネントのインターフェースをより良いものにできるのではないかなと思います
+- ということで、まとめです。今回は、最初にお見せした data, loading, error のような、ただ値を並べただけの props から始まりました
+- そこから、props の型で UI の状態を宣言する、という考え方を入れていって、最後はそれだけでは表現しきれない複雑な UI 状態を、コンポーネントの責務分離と JSX の構造で表現する、という話をしました
+- ポイントを 3 つにまとめます
+- [click:1] まず、UI として意味の違う状態を区別する。たとえば初回 loading と再取得中の loading は、UI 上は別の意味を持つので、区別して考える
+- [click:1] 次に、コンポーネントが責任を持つ状態だけを props にする。すべてを1つの props 型に詰め込もうとせず、そのコンポーネントが担当すべき状態にだけ集中させる
+- [click:1] そして、型だけで表現しきれない状態は、Suspense や ErrorBoundary のような React の境界を使って、JSX の構造そのものとして表現する
+- props 設計を考えるときに、その props は単なる値の集合になっていないか、そのコンポーネントが責任を持つ UI 状態を表せているか、という観点で見直してみると、React コンポーネントのインターフェースをより良いものにできるんじゃないかなと思います
 -->
 
 ---
