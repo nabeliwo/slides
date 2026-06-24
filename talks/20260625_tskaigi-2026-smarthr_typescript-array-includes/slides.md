@@ -180,6 +180,7 @@ const arrayIncludes = <T extends U, U>(
   values: readonly T[],
   value: U,
 ): value is T => {
+  // ここの value as T は extends で制限されているから大丈夫
   return values.includes(value as T)
 }
 
@@ -192,7 +193,7 @@ arrayIncludes(validParams, 123) // 型チェックが通らない
 <!--
 - こういう arrayInclude みたいな関数を作ったりします
 - ジェネリクスの extends の部分で、配列の要素型 T が value の型 U の下位型である、というのを表現してます
-- 例えば "hoge", "fuga", "piyo" のユニオン型に対して、上位型の string は渡せるけど number は渡せない、みたいな感じです
+- "hoge", "fuga", "piyo" のユニオン型に対して、上位型の string は渡せるけど number は渡せない、みたいな感じです
 - これで一旦やりたいこと自体はできるようになったんですけど
 -->
 
@@ -242,9 +243,9 @@ interface ReadonlyArray<T> {
 </div>
 
 <!--
-- 1つ目は引数側の課題で lower-bound syntax というもので、Java とかにある super みたいなのが TypeScript にあったらいいよね、という議論です
+- 1つ目は引数側の課題で lower-bound syntax というもので、extends の対称としての super みたいなのが TypeScript にあったらいいよね、という議論です
 - super があれば、U が T の上位型なら受け取れますよ、という制限をかけられます
-- さっき見せた現状の解決策の arrayIncludes 関数の T extends U と U っていうジェネリクスは、引数を2つ取ることでこの super を擬似的に表現してたんですけど、super という構文があれば、Array の includes 自身の型定義としてそのまま書けるようになります
+- さっき見せた現状の解決策の arrayIncludes 関数の T extends U と U っていうジェネリクスは、引数を2つ取ることでこの super を擬似的に表現してたんですけど、この構文があれば、Array の includes 自身の型定義としてそのまま書けるようになります
 -->
 
 ---
@@ -260,6 +261,7 @@ class: '[--slidev-code-font-size:1.3rem]'
 </div>
 
 ```ts
+// 型としては 'piyo' を含むが、実体には 'piyo' が入ってない配列
 const validParams: ('hoge' | 'fuga' | 'piyo')[] = ['hoge', 'fuga']
 declare const param: 'hoge' | 'fuga' | 'piyo'
 
@@ -272,7 +274,7 @@ if (arrayIncludes(validParams, param)) {
 
 <!--
 - もう1つの課題が片側型ガードというもので、
-- このコードの例では、else 側の param の型が never になっちゃうんですけど、実際には 'piyo' という文字列が入る可能性が残っていてるんですよね。
+- このコードの例では、else 側の param の型が never になっちゃうんですけど、実際には 'piyo' という文字列が入る可能性が残っていて、
 - つまり、false 側まで型を絞るのが正しくないケースもあるってことで
 -->
 
@@ -281,6 +283,12 @@ class: code-center [--slidev-code-font-size:1.8rem]
 ---
 
 # 戻り値側の課題 — 片側型ガード
+
+<div class="mt-10 mb-6">
+
+## 解決策
+
+</div>
 
 ```ts
 // 提案構文: as で true 側だけ絞る
