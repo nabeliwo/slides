@@ -1,0 +1,19 @@
+.slidev-layout pre.slidev-code {
+  --slidev-code-background: #292d3e;
+}
+
+.slidev-layout.code-center {
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+}
+.slidev-layout.code-center > h1 {
+  position: absolute;
+  top: 2.5rem;
+  left: 3.5rem;
+  right: 3.5rem;
+}
+
+.code-swap .slidev-vclick-target {
+  transition: none !important;
+}
