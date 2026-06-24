@@ -191,7 +191,7 @@ arrayIncludes(validParams, 123) // 型チェックが通らない
 ```
 
 <!--
-- こういう arrayInclude みたいな関数を作ったりします
+- こういう arrayIncludes みたいな関数を作ったりします
 - ジェネリクスの extends の部分で、配列の要素型 T が value の型 U の下位型である、というのを表現してます
 - "hoge", "fuga", "piyo" のユニオン型に対して、上位型の string は渡せるけど number は渡せない、みたいな感じです
 - これで一旦やりたいこと自体はできるようになったんですけど
